@@ -1,0 +1,26 @@
+version: "3.5"
+
+networks:
+  traefik-net:
+    name: "traefik-net"
+
+services:
+  traefik:
+    image: traefik:latest
+    container_name: core_traefik
+    networks:
+      - traefik-net
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - "./data/traefik.yaml:/etc/traefik/traefik.yaml"
+      - "./data/acme.json:/data/acme.json"
+      - "./data/log:/data/log"
+      - "./data/traefik:/data/traefik"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    restart: unless-stopped

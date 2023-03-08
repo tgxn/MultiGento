@@ -1,0 +1,35 @@
+
+http:
+  middlewares:
+
+    # Redirect to https
+    redirect_https:
+      redirectScheme:
+        scheme: https
+        permanent: true
+    
+    # secure https middleware
+    secure_site:
+      headers:
+        isDevelopment: false
+
+        stsIncludeSubdomains: false
+        stsPreload: true
+        stsSeconds: 31536000
+        
+        frameDeny: false
+        browserXssFilter: true
+        customFrameOptionsValue: "sameorigin"
+        
+        customResponseHeaders:
+          server: ""
+
+tls:
+  options:
+    default:
+      minVersion: VersionTLS12
+      sniStrict: true
+
+    nosni:
+      minVersion: VersionTLS12
+      # sniStrict: false

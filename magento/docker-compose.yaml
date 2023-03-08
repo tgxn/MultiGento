@@ -1,0 +1,146 @@
+version: "3.5"
+
+networks:
+  traefik-net:
+    external: true
+  db-public-net:
+    external: true
+  magento-net:
+    driver: bridge
+
+
+volumes:
+  # mariadb_data:
+  #   driver: local
+  elasticsearch_data:
+    driver: local
+  magento_data:
+    driver: local
+
+services:
+
+  # phpmyadmin:
+  #   image: lscr.io/linuxserver/phpmyadmin:latest
+  #   restart: always
+  #   expose:
+  #     - "40001"
+  #   ports:
+  #     - "40001:80"
+  #   environment:
+  #     # - PMA_ARBITRARY=1
+  #     - PMA_HOST=mariadb
+  #     - PMA_PORT=3306
+  #   networks:
+  #     - magento-net
+
+  # mariadb:
+  #   image: docker.io/bitnami/mariadb:10.4
+  #   restart: always
+  #   networks:  
+  #     - magento-net
+  #   environment:
+  #     - MARIADB_ROOT_PASSWORD=r5yberttunet6unrt66unmrt8un
+  #     - MARIADB_DATABASE=magento
+  #     - MARIADB_USER=magento
+  #     - MARIADB_PASSWORD=${MARIADB_PASSWORD}
+  #   volumes:
+  #     - 'mariadb_data:/bitnami/mariadb'
+  #   healthcheck:
+  #     test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+  #     timeout: 20s
+  #     retries: 5
+
+  elasticsearch:
+    image: docker.io/bitnami/elasticsearch:${ES_TAG}
+    restart: always
+    networks:
+      - magento-net
+    volumes:
+      - 'elasticsearch_data:/bitnami/elasticsearch/data'
+    healthcheck:
+      test: [ "CMD", "curl",  "http://elasticsearch:9200/_cat/health?h=status" ]
+      interval: 20s
+      timeout: 2s
+      retries: 5
+
+  # magento_data requires backup
+  magento:
+    image: docker.io/bitnami/magento:${MAGENTO_TAG}
+    restart: always
+    depends_on:
+      - elasticsearch
+    networks:  
+      - magento-net
+      - db-public-net
+    volumes:
+      - 'magento_data:/bitnami/magento'
+    deploy:
+      resources:
+        limits:
+          # cpus: '0.001'
+          memory: 2G
+    environment:
+      - MAGENTO_HOST=${MAGENTO_HOST}
+
+      # db host
+      - MAGENTO_DATABASE_HOST=${MAGENTO_DATABASE_HOST}
+      - MAGENTO_DATABASE_NAME=${MAGENTO_DATABASE_NAME}
+      - MAGENTO_DATABASE_USER=${MAGENTO_DATABASE_USER}
+      - MAGENTO_DATABASE_PASSWORD=${MARIADB_PASSWORD}
+
+      # es setup
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT_NUMBER=9200
+
+      # default user
+      - MAGENTO_USERNAME=${MAGENTO_USERNAME}
+      - MAGENTO_PASSWORD=${MAGENTO_PASSWORD}
+
+      # varnish config
+      - MAGENTO_ENABLE_HTTP_CACHE=yes
+      - MAGENTO_HTTP_CACHE_BACKEND_HOST=varnish
+      - MAGENTO_HTTP_CACHE_BACKEND_PORT_NUMBER=80
+      - MAGENTO_HTTP_CACHE_SERVER_HOST=varnish
+      - MAGENTO_HTTP_CACHE_SERVER_PORT_NUMBER=80
+
+      # magento settings
+      - MAGENTO_MODE=${MAGENTO_MODE}
+      - MAGENTO_ENABLE_HTTPS=yes
+      - MAGENTO_ENABLE_ADMIN_HTTPS=yes
+
+      # php settings
+      - PHP_EXPOSE_PHP=no
+      - PHP_MAX_EXECUTION_TIME=180000
+      - PHP_MEMORY_LIMIT=2048M
+
+  # does not require permanent storage
+  varnish:
+    image: varnish:${VARNISH_TAG}
+    command: "-p default_keep=300"
+    restart: always
+    depends_on:
+      - magento
+    networks:  
+      - magento-net
+      - traefik-net
+    volumes:
+      - "./default.vcl:/etc/varnish/default.vcl"
+    environment:
+      - VARNISH_SIZE=2G
+    tmpfs:
+      - /var/lib/varnish:exec
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-net"
+
+      - "traefik.http.services.magento_${COMPOSE_PROJECT_NAME}.loadbalancer.server.scheme=http"
+      - "traefik.http.services.magento_${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=80"
+      
+      - "traefik.http.routers.magento_${COMPOSE_PROJECT_NAME}.rule=Host(`${MAGENTO_HOST}`)"
+      - "traefik.http.routers.magento_${COMPOSE_PROJECT_NAME}.entrypoints=https"
+      - "traefik.http.routers.magento_${COMPOSE_PROJECT_NAME}.tls.certResolver=multigento"
+      - "traefik.http.routers.magento_${COMPOSE_PROJECT_NAME}.middlewares=secure_site@file"
+
+      - "traefik.http.routers.magento_${COMPOSE_PROJECT_NAME}_http_redirect.rule=Host(`${MAGENTO_HOST}`)"
+      - "traefik.http.routers.magento_${COMPOSE_PROJECT_NAME}_http_redirect.entrypoints=http"
+      - "traefik.http.routers.magento_${COMPOSE_PROJECT_NAME}_http_redirect.middlewares=redirect_https@file"
