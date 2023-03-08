@@ -1,3 +1,6 @@
 backups/
 magento/envs/
 mariadb/.env
+
+traefik/data/log/
+traefik/data/acme.json
