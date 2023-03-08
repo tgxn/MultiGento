@@ -10,45 +10,12 @@ networks:
 
 
 volumes:
-  # mariadb_data:
-  #   driver: local
   elasticsearch_data:
     driver: local
   magento_data:
     driver: local
 
 services:
-
-  # phpmyadmin:
-  #   image: lscr.io/linuxserver/phpmyadmin:latest
-  #   restart: always
-  #   expose:
-  #     - "40001"
-  #   ports:
-  #     - "40001:80"
-  #   environment:
-  #     # - PMA_ARBITRARY=1
-  #     - PMA_HOST=mariadb
-  #     - PMA_PORT=3306
-  #   networks:
-  #     - magento-net
-
-  # mariadb:
-  #   image: docker.io/bitnami/mariadb:10.4
-  #   restart: always
-  #   networks:  
-  #     - magento-net
-  #   environment:
-  #     - MARIADB_ROOT_PASSWORD=r5yberttunet6unrt66unmrt8un
-  #     - MARIADB_DATABASE=magento
-  #     - MARIADB_USER=magento
-  #     - MARIADB_PASSWORD=${MARIADB_PASSWORD}
-  #   volumes:
-  #     - 'mariadb_data:/bitnami/mariadb'
-  #   healthcheck:
-  #     test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
-  #     timeout: 20s
-  #     retries: 5
 
   elasticsearch:
     image: docker.io/bitnami/elasticsearch:${ES_TAG}
@@ -62,6 +29,10 @@ services:
       interval: 20s
       timeout: 2s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 500M
 
   # magento_data requires backup
   magento:
@@ -77,8 +48,7 @@ services:
     deploy:
       resources:
         limits:
-          # cpus: '0.001'
-          memory: 2G
+          memory: 1G
     environment:
       - MAGENTO_HOST=${MAGENTO_HOST}
 
@@ -111,7 +81,7 @@ services:
       # php settings
       - PHP_EXPOSE_PHP=no
       - PHP_MAX_EXECUTION_TIME=180000
-      - PHP_MEMORY_LIMIT=2048M
+      - PHP_MEMORY_LIMIT=1024M
 
   # does not require permanent storage
   varnish:
@@ -126,7 +96,11 @@ services:
     volumes:
       - "./default.vcl:/etc/varnish/default.vcl"
     environment:
-      - VARNISH_SIZE=2G
+      - VARNISH_SIZE=1G
+    deploy:
+      resources:
+        limits:
+          memory: 1G
     tmpfs:
       - /var/lib/varnish:exec
     labels:

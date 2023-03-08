@@ -6,8 +6,8 @@ if [ "$EUID" -ne 0 ]
 fi
 
 # DB HOST
-SQL_HOST="127.0.0.1"
-CONTAINER_SQL_HOST="172.50.1.10"
+SQL_HOST="127.0.0.1" # master node
+CONTAINER_SQL_HOST="172.50.1.100" # haproxy host on public net
 
 DOCKER_VOLUMES=/var/lib/docker/volumes
 

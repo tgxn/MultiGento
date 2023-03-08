@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # DB HOST
-SQL_HOST="127.0.0.1"
-CONTAINER_SQL_HOST="172.50.1.10"
+SQL_HOST="127.0.0.1" # master node
+CONTAINER_SQL_HOST="172.50.1.100" # haproxy host on public net
 
 # Source the .env file to load the password variable
 source mariadb/.env
@@ -10,6 +10,10 @@ source mariadb/.env
 # GET ENV NAME
 echo Please enter name for new environment
 read envname
+
+# GET ENV NAME
+echo "Please enter password for admin user (if blank random password will be generated)"
+read adminpw
 
 ENV_FILE="magento/envs/$envname.env"
 DB_NAME="magento_$envname"
@@ -19,6 +23,11 @@ MAG_HOSTNAME=$envname.aws.tgxn.net
 
 # Set variables for database name, new username, and password
 NEW_USER_PASSWORD=`date +%s | sha256sum | base64 | head -c 32 ; echo`
+
+if(test -z "$adminpw"); then
+    adminpw=`date +%s | sha256sum | base64 | head -c 32 ; echo`
+    echo "Admin password is $adminpw"
+fi
 
 if test -f "$ENV_FILE"; then
     echo "$ENV_FILE already exists!"
@@ -51,7 +60,7 @@ MARIADB_PASSWORD=$NEW_USER_PASSWORD
 
 # magento settings
 MAGENTO_USERNAME=admin
-MAGENTO_PASSWORD=e9op4ctjmuhw4895vyt
+MAGENTO_PASSWORD=$adminpw
 MAGENTO_MODE=production
 
 ES_TAG=7.17.9

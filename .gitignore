@@ -1,0 +1,3 @@
+backups/
+magento/envs/
+mariadb/.env

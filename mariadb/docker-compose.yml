@@ -24,6 +24,7 @@ x-container-default: &container_defaults
     
 services:
 
+  # optional - for management
   phpmyadmin:
     image: lscr.io/linuxserver/phpmyadmin:latest
     restart: always
@@ -33,22 +34,21 @@ services:
       - "40002:80"
     environment:
       # - PMA_ARBITRARY=1
-      - PMA_HOST=172.50.1.10  # haproxy
+      - PMA_HOST=172.50.1.100 # haproxy
       - PMA_PORT=3306
     networks:
       db-public-net:
-        ipv4_address: 172.50.1.100
+        ipv4_address: 172.50.1.101
 
+  # haproxy is used to load balance the galera cluster - it has no data to backup
   haproxy:
     image: bitnami/haproxy:latest
     restart: always
     networks:
       db-private-net:
-        ipv4_address: 172.50.0.3
+        ipv4_address: 172.50.0.100
       db-public-net:
-        ipv4_address: 172.50.1.10
-    ports:
-      - "3306:3306" # for local operations
+        ipv4_address: 172.50.1.100
     volumes:
       - ./haproxy.cfg:/bitnami/haproxy/conf/haproxy.cfg
 
@@ -56,19 +56,16 @@ services:
     <<: *container_defaults
     networks:
       db-private-net:
-        ipv4_address: 172.50.0.10
+        ipv4_address: 172.50.0.110
     ports:
-      - "3307:3306"
+      - "3306:3306" # for local operations
     volumes:
-      # - './init.sql:/docker-entrypoint-startdb.d/init.sql' # init sql (only uncomment first start)
       - 'mariadb_galera_master:/bitnami/mariadb'
     environment:
-      # - MARIADB_DEFAULT_COLLATE="utf8mb4_unicode_ci"
-      # - MARIADB_DEFAULT_CHARACTER_SET="utf8mb4"
-      - MARIADB_EXTRA_FLAGS=--report-host=master --proxy-protocol-networks=172.50.0.3/32
       - MARIADB_GALERA_CLUSTER_BOOTSTRAP=yes
       - MARIADB_GALERA_FORCE_SAFETOBOOTSTRAP=yes
-      - MARIADB_GALERA_CLUSTER_ADDRESS=gcomm://172.50.0.10,172.50.0.11,172.50.0.12,172.50.0.13
+      - MARIADB_EXTRA_FLAGS=--proxy-protocol-networks=172.50.0.100/32
+      - MARIADB_GALERA_CLUSTER_ADDRESS=gcomm://172.50.0.110,172.50.0.111,172.50.0.112
 
   node1:
     <<: *container_defaults
@@ -76,15 +73,13 @@ services:
       - master
     networks:
       db-private-net:
-        ipv4_address: 172.50.0.11
+        ipv4_address: 172.50.0.111
     volumes:
       - 'mariadb_galera_node1:/bitnami/mariadb'
     environment:
-      # - MARIADB_DEFAULT_COLLATE="utf8mb4_unicode_ci"
-      # - MARIADB_DEFAULT_CHARACTER_SET="utf8mb4"
-      - MARIADB_EXTRA_FLAGS=--report-host=node1 --proxy-protocol-networks=172.50.0.3/32
-      - MARIADB_GALERA_CLUSTER_ADDRESS=gcomm://172.50.0.10,172.50.0.11,172.50.0.12,172.50.0.13
-      - MARIADB_GALERA_NODE_ADDRESS=172.50.0.11
+      - MARIADB_EXTRA_FLAGS=--proxy-protocol-networks=172.50.0.100/32
+      - MARIADB_GALERA_CLUSTER_ADDRESS=gcomm://172.50.0.110,172.50.0.111,172.50.0.112
+      - MARIADB_GALERA_NODE_ADDRESS=172.50.0.111
 
   node2:
     <<: *container_defaults
@@ -92,31 +87,29 @@ services:
       - master
     networks:
       db-private-net:
-        ipv4_address: 172.50.0.12
+        ipv4_address: 172.50.0.112
     volumes:
       - 'mariadb_galera_node2:/bitnami/mariadb'
     environment:
-      # - MARIADB_DEFAULT_COLLATE="utf8mb4_unicode_ci"
-      # - MARIADB_DEFAULT_CHARACTER_SET="utf8mb4"
-      - MARIADB_EXTRA_FLAGS=--report-host=node2 --proxy-protocol-networks=172.50.0.3/32
-      - MARIADB_GALERA_CLUSTER_ADDRESS=gcomm://172.50.0.10,172.50.0.11,172.50.0.12,172.50.0.13
-      - MARIADB_GALERA_NODE_ADDRESS=172.50.0.12
+      - MARIADB_EXTRA_FLAGS=--proxy-protocol-networks=172.50.0.100/32
+      - MARIADB_GALERA_CLUSTER_ADDRESS=gcomm://172.50.0.110,172.50.0.111,172.50.0.112
+      - MARIADB_GALERA_NODE_ADDRESS=172.50.0.112
 
-  node3:
-    <<: *container_defaults
-    depends_on:
-      - master
-    networks:
-      db-private-net:
-        ipv4_address: 172.50.0.13
-    volumes:
-      - 'mariadb_galera_node3:/bitnami/mariadb'
-    environment:
-      # - MARIADB_DEFAULT_COLLATE="utf8mb4_unicode_ci"
-      # - MARIADB_DEFAULT_CHARACTER_SET="utf8mb4"
-      - MARIADB_EXTRA_FLAGS=--report-host=node3 --proxy-protocol-networks=172.50.0.3/32
-      - MARIADB_GALERA_CLUSTER_ADDRESS=gcomm://172.50.0.10,172.50.0.11,172.50.0.12,172.50.0.13
-      - MARIADB_GALERA_NODE_ADDRESS=172.50.0.13
+  # node3:
+  #   <<: *container_defaults
+  #   depends_on:
+  #     - master
+  #   networks:
+  #     db-private-net:
+  #       ipv4_address: 172.50.0.13
+  #   volumes:
+  #     - 'mariadb_galera_node3:/bitnami/mariadb'
+  #   environment:
+  #     # - MARIADB_DEFAULT_COLLATE="utf8mb4_unicode_ci"
+  #     # - MARIADB_DEFAULT_CHARACTER_SET="utf8mb4"
+  #     - MARIADB_EXTRA_FLAGS=--report-host=node3 --proxy-protocol-networks=172.50.0.3/32
+  #     - MARIADB_GALERA_CLUSTER_ADDRESS=gcomm://172.50.0.10,172.50.0.11,172.50.0.12,172.50.0.13
+  #     - MARIADB_GALERA_NODE_ADDRESS=172.50.0.13
 
 volumes:
   mariadb_galera_master:
